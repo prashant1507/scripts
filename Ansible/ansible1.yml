@@ -1,0 +1,83 @@
+---
+  - hosts: [win10]
+    gather_facts: yes
+
+    tasks:
+    - name: Ping to windows machine
+      win_ping:
+    
+    - name: Update windows machine
+      win_updates:
+        category_names:
+          - Application
+          - CriticalUpdates
+          - DefinitionUpdates
+          - SecurityUpdates
+          - Updates
+        state: installed
+        reboot: yes
+        reboot_timeout: 600
+      when: ansible_facts['os_family'] == "Windows"
+    
+    - name: Make sure machine is reachable
+      wait_for_connection:
+        delay: 60
+        timeout: 300
+
+    - name: Ensure WinRM is ready after reboot
+      win_service:
+       name: WinRM
+       start_mode: auto
+    
+    - name: Create temp directory
+      win_file:
+        path: C:\Temp
+        state: directory
+    
+    - name: Copy firefox.zip to windows machine
+      win_copy:
+        src: 'Firefox Setup 75.0.zip'
+        dest: 'C:\Temp\'
+    
+    - name: Extract firefox.zip
+      win_unzip:
+        src: 'C:\Temp\Firefox Setup 75.0.zip'
+        dest: 'C:\Temp\Firefox Setup 75.0'
+        wait: yes
+    
+    - name: Install firefox.exe
+      win_package:
+        path: 'C:\Temp\Firefox Setup 75.0\Firefox Setup 75.0.exe'
+        arguments: /S
+        product_id: 'Morzilla Firefox'
+        wait: yes
+        state: present
+
+    - name: Install chocolatey
+      win_chocolatey:
+        name: chocolatey
+        validate_certs: no
+        state: present
+        wait: yes
+
+    - name: Install google chrome using chocolatey
+      win_chocolatey:
+        name: googlechrome
+        ignore_checksums: yes
+        force: yes
+        wait: yes
+        state: present
+
+    - name: Update chocolatey packages
+      win_chocolatey:
+        name: all
+        state: latest
+    
+    - name: Remove temporary directory
+      win_file:
+        path: C:\Temp
+        state: absent
+
+    - name: reboot
+      win_reboot:
+        post_reboot_delay: 120
